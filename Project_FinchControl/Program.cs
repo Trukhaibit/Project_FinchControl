@@ -576,7 +576,7 @@ namespace Project_FinchControl
 
             DisplayScreenHeader("Sensors to Monitor");
 
-            Console.Write("\tEnter Which Sensor the Finch Should Monitor [left, right, both]: ");
+            Console.Write("\tEnter Which Sensor the Finch Should Monitor [left, right, both, temp, all]: ");
             sensorsToMonitor = Console.ReadLine();
             Console.Write($"\tThe Finch will monitor (the) {sensorsToMonitor} sensor(s).");
 
@@ -604,6 +604,7 @@ namespace Project_FinchControl
 
             int currentLeftSensorValue = finchRobot.getLeftLightSensor();
             int currentRightSensorValue = finchRobot.getRightLightSensor();
+            double currentTempValue = finchRobot.getTemperature();
 
             DisplayScreenHeader("Threshold Value");
 
@@ -620,6 +621,16 @@ namespace Project_FinchControl
                 case "both":
                     Console.WriteLine($"\tLeft Sensor Value: {currentLeftSensorValue}");
                     Console.WriteLine($"\tRight Sensor Value: {currentRightSensorValue}");
+                    break;
+
+                case "temp":
+                    Console.WriteLine($"\tCurrent {sensorsToMonitor} Sensor Value: {currentTempValue}");
+                    break;
+
+                case "all":
+                    Console.WriteLine($"\tLeft Sensor Value: {currentLeftSensorValue}");
+                    Console.WriteLine($"\tRight Sensor Value: {currentRightSensorValue}");
+                    Console.WriteLine($"\tTemperature Sensor Value: {currentTempValue}");
                     break;
 
                 default:
@@ -652,9 +663,11 @@ namespace Project_FinchControl
         private static void AlarmSystemDisplaySetAlarm(Finch finchRobot, string rangeType, string sensorsToMonitor, int minMaxThreshold, int timeToMonitor)
         {
             bool thresholdExceeded = false;
+            bool tempThresExceeded = false;
             int secondsElapsed = 1;
             int leftLightSensorValue;
             int rightLightSensorValue;
+            double tempSensorValue; ;
 
             DisplayScreenHeader("Set Alarm");
             Console.WriteLine("\tStart");
@@ -665,6 +678,7 @@ namespace Project_FinchControl
 
                 leftLightSensorValue = finchRobot.getLeftLightSensor();
                 rightLightSensorValue = finchRobot.getRightLightSensor();
+                tempSensorValue = finchRobot.getTemperature();
                 switch (sensorsToMonitor)
                 {
                     case "left":
@@ -678,6 +692,16 @@ namespace Project_FinchControl
                     case "both":
                         Console.WriteLine($"\tCurrent Left {sensorsToMonitor} Sensor Value: {leftLightSensorValue}");
                         Console.WriteLine($"\tCurrent Right {sensorsToMonitor} Sensor Value: {rightLightSensorValue}");
+                        break;
+
+                    case "temp":
+                        Console.WriteLine($"\tCurrent {sensorsToMonitor} Sensor Value: {tempSensorValue}");
+                        break;
+
+                    case "all":
+                        Console.WriteLine($"\tCurrent Left {sensorsToMonitor} Sensor Value: {leftLightSensorValue}");
+                        Console.WriteLine($"\tCurrent Right {sensorsToMonitor} Sensor Value: {rightLightSensorValue}");
+                        Console.WriteLine($"\tCurrent {sensorsToMonitor} Sensor Value: {tempSensorValue}");
                         break;
 
                     default:
@@ -729,18 +753,58 @@ namespace Project_FinchControl
                         }
                         break;
 
+                    case "temp":
+                        if (rangeType == "minimum")
+                        {
+                            tempThresExceeded = (tempSensorValue < minMaxThreshold);
+                        }
+                        else
+                        {
+                            tempThresExceeded = (tempSensorValue > minMaxThreshold);
+                        }
+                        break;
+
+                    case "all":
+                        if (rangeType == "minimum")
+                        {
+                            if ((rightLightSensorValue < minMaxThreshold) || (leftLightSensorValue < minMaxThreshold))
+                            {
+                                thresholdExceeded = true;
+                            }
+                            else if (tempSensorValue < minMaxThreshold)
+                            {
+                                tempThresExceeded = true;
+                            }
+                        }
+                        else
+                        {
+                            if ((rightLightSensorValue > minMaxThreshold) || (leftLightSensorValue > minMaxThreshold))
+                            {
+                                thresholdExceeded = true;
+                            }
+                            else if (tempSensorValue > minMaxThreshold)
+                            {
+                                tempThresExceeded = true;
+                            }
+                        }
+                        break;
+
                     default:
                         Console.WriteLine("\tUnknown Sensor Reference");
                         break;
                 }
 
-            } while (!thresholdExceeded && (secondsElapsed <= timeToMonitor));
+            } while (!thresholdExceeded && !tempThresExceeded && (secondsElapsed <= timeToMonitor));
 
             Console.WriteLine();
 
             if (thresholdExceeded)
             {
-                Console.WriteLine("\tThreshold Exceeded");
+                Console.WriteLine("\tLight Threshold Exceeded");
+            }
+            else if (tempThresExceeded)
+            {
+                Console.WriteLine("\tTemperature Threshold Exceeded");
             }
             else
             {
