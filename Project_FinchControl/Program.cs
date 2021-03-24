@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using FinchAPI;
 
 namespace Project_FinchControl
@@ -14,7 +15,7 @@ namespace Project_FinchControl
     // Application Type: Console
     // Author: Olszewski, James
     // Dated Created: 2/17/2021
-    // Last Modified: 3/10/2021
+    // Last Modified: 3/24/2021
     //
     // **************************************************
     
@@ -30,6 +31,12 @@ namespace Project_FinchControl
         LEDON,
         LEDOFF,
         GETTEMPERTURE,
+        GETLIGHTLEVEL,
+        GETTEMPLIGHT,
+        NOTEON,
+        NOTEOFF,
+        LEDNOTEON,
+        LEDNOTEOFF,
         DONE
     }
 
@@ -844,11 +851,12 @@ namespace Project_FinchControl
             bool exit = false;
             string menuChoice;
 
-            (int motorSpeed, int ledBrightness, double waitSeconds) commandParameters;
+            (int motorSpeed, int ledBrightness, int notePitch, double waitSeconds) commandParameters;
             commandParameters.motorSpeed = 0;
             commandParameters.ledBrightness = 0;
+            commandParameters.notePitch = 0;
             commandParameters.waitSeconds = 0;
-            List<Command> commands = null;
+            List<(Command command, int duration)> commands = new List<(Command command, int duration)>();
 
             do
             {
@@ -900,19 +908,169 @@ namespace Project_FinchControl
             } while (!exit);
         }
 
-        private static void UserProgrammingDisplayExecuteCommands(Finch finchRobot, List<Command> commands, (int motorSpeed, int ledBrightness, double waitSeconds) commandParameters)
+        static (int motorSpeed, int ledBrightness, int notePitch, double waitSeconds) UserProgrammingDisplayGetCommandParameters()
+        {
+            (int motorSpeed, int ledBrightness, int notePitch, double waitSeconds) commandParameters;
+            commandParameters.motorSpeed = 0;
+            commandParameters.ledBrightness = 0;
+            commandParameters.notePitch = 0;
+            commandParameters.waitSeconds = 0;
+            int num;
+            bool valid = false;
+            DisplayScreenHeader("Command Parameters");
+            Console.WriteLine("All values have been reset to zero.");
+            do
+            {
+                Console.Write("Motor Speed: ");
+                if (int.TryParse(Console.ReadLine(), out num))
+                {
+                    Console.WriteLine();
+                    Console.WriteLine($"\tYou have entered: {num} For the Motor Speed.");
+                    commandParameters.motorSpeed = num;
+                    valid = true;
+                }
+                else
+                {
+                    Console.WriteLine();
+                    Console.WriteLine("\tPlease enter an integer for the Motor Speed.");
+                    Program.DisplayContinuePrompt();
+                }
+
+            } while (valid == false);
+            valid = false;
+            do
+            {
+                Console.Write("LED Brightness: ");
+                if (int.TryParse(Console.ReadLine(), out num))
+                {
+                    Console.WriteLine();
+                    Console.WriteLine($"\tYou have entered: {num} For the LED Brightness.");
+                    commandParameters.ledBrightness = num;
+                    valid = true;
+                }
+                else
+                {
+                    Console.WriteLine();
+                    Console.WriteLine("\tPlease enter an integer for the LED Brightness.");
+                    Program.DisplayContinuePrompt();
+                }
+
+            } while (valid == false);
+            valid = false;
+            do
+            {
+                Console.Write("Note Pitch: ");
+                if (int.TryParse(Console.ReadLine(), out num))
+                {
+                    Console.WriteLine();
+                    Console.WriteLine($"\tYou have entered: {num} For the Note Pitch.");
+                    commandParameters.notePitch = num;
+                    valid = true;
+                }
+                else
+                {
+                    Console.WriteLine();
+                    Console.WriteLine("\tPlease enter an integer for the Note Pitch.");
+                    Program.DisplayContinuePrompt();
+                }
+
+            } while (valid == false);
+            valid = false;
+            do
+            {
+                Console.Write("Wait Time: ");
+                if (int.TryParse(Console.ReadLine(), out num))
+                {
+                    Console.WriteLine();
+                    Console.WriteLine($"\tYou have entered: {num} For the Wait Time.");
+                    commandParameters.waitSeconds = num;
+                    valid = true;
+                }
+                else
+                {
+                    Console.WriteLine();
+                    Console.WriteLine("\tPlease enter an integer for the Wait Time.");
+                    Program.DisplayContinuePrompt();
+                }
+
+            } while (valid == false);
+            return commandParameters;
+        }
+
+        static List<(Command command, int duration)> UserProgrammingDisplayGetFinchCommands()
+        {
+            List<(Command command, int duration)> commands = new List<(Command command, int duration)>();
+            bool isDone = false;
+            string userResponse;
+            string userDuration;
+
+            DisplayScreenHeader("User Commands");
+
+            foreach (var enumValue in Enum.GetValues(typeof(Command)))
+            {
+                Console.WriteLine(enumValue);
+            }
+
+            do
+            {
+                Console.WriteLine();
+                Console.Write("Command: ");
+                userResponse = Console.ReadLine();
+                Console.Write("Duration: ");
+                userDuration = Console.ReadLine();
+                if (userResponse != "DONE")
+                {
+                    if (Enum.TryParse(userResponse.ToUpper(), out Command command) && int.TryParse(userDuration, out int duration))
+                    {
+                        commands.Add((command, duration));
+
+                    } else
+                    {
+                        Console.WriteLine("\tPlease enter a proper command and proper interval for duration.");
+                    }
+                } else
+                {
+                    isDone = true;
+                }
+
+            } while (!isDone);
+
+            DisplayContinuePrompt();
+
+            return commands;
+        }
+
+        static void UserProgrammingDisplayViewCommands(List<(Command command, int duration)> commands)
+        {
+            DisplayScreenHeader("View Commands");
+
+            Console.WriteLine("\tCommand List");
+            Console.WriteLine("\t------------");
+
+            foreach ((Command command, int duration) in commands)
+            {
+                Console.WriteLine("\t" + command + " for " + duration);
+            }
+
+            DisplayContinuePrompt();
+        }
+
+        private static void UserProgrammingDisplayExecuteCommands(Finch finchRobot, List<(Command command, int duration)> commands, (int motorSpeed, int ledBrightness, int notePitch, double waitSeconds) commandParameters)
         {
             int motorSpeed = commandParameters.motorSpeed;
             int ledBrightness = commandParameters.ledBrightness;
+            int notePitch = commandParameters.notePitch = 0;
             double waitSeconds = commandParameters.waitSeconds;
             int waitMilliseconds = (int)(waitSeconds * 1000);
+            int waitDuration;
             DisplayScreenHeader("Execute Commands");
 
             Console.WriteLine("\tThe Finch robot will not execute all commands.");
-            foreach (Command command in commands)
+            foreach ((Command command, int duration) in commands)
             {
+                waitDuration = (int)(duration * 1000);
                 switch (command)
-                {   
+                {
                     case Command.NONE:
                         Console.WriteLine();
                         Console.WriteLine("\tDefault Value Error");
@@ -945,6 +1103,27 @@ namespace Project_FinchControl
                     case Command.GETTEMPERTURE:
                         Console.WriteLine($"\tTemperture: {finchRobot.getTemperature()}");
                         break;
+                    case Command.GETLIGHTLEVEL:
+                        Console.WriteLine($"\tLight Level: {(finchRobot.getLeftLightSensor() + finchRobot.getLeftLightSensor()) / 2}");
+                        break;
+                    case Command.GETTEMPLIGHT:
+                        Console.WriteLine($"\tTemperture: {finchRobot.getTemperature()}");
+                        Console.WriteLine($"\tLight Level: {(finchRobot.getLeftLightSensor() + finchRobot.getLeftLightSensor()) / 2}");
+                        break;
+                    case Command.NOTEON:
+                        finchRobot.noteOn(notePitch * 100);
+                        break;
+                    case Command.NOTEOFF:
+                        finchRobot.noteOff();
+                        break;
+                    case Command.LEDNOTEON:
+                        finchRobot.setLED(ledBrightness, ledBrightness, ledBrightness);
+                        finchRobot.noteOn(notePitch * 100);
+                        break;
+                    case Command.LEDNOTEOFF:
+                        finchRobot.setLED(0, 0, 0);
+                        finchRobot.noteOff();
+                        break;
                     case Command.DONE:
                         break;
 
@@ -954,133 +1133,9 @@ namespace Project_FinchControl
                         Console.WriteLine();
                         break;
                 }
-                finchRobot.wait(waitMilliseconds);
+                finchRobot.wait(waitDuration);
                 Console.WriteLine($"\tCommand; {command}");
             }
-            DisplayContinuePrompt();
-
-        }
-
-        static (int motorSpeed, int ledBrightness, double waitSeconds) UserProgrammingDisplayGetCommandParameters()
-        {
-            (int motorSpeed, int ledBrightness, double waitSeconds) commandParameters;
-            commandParameters.motorSpeed = 0;
-            commandParameters.ledBrightness = 0;
-            commandParameters.waitSeconds = 0;
-            int num;
-            bool valid = false;
-            DisplayScreenHeader("Command Parameters");
-            Console.WriteLine("All values have been reset to zero.");
-            do
-            {
-                Console.Write("Motor Speed: ");
-                if (int.TryParse(Console.ReadLine(), out num))
-                {
-                    Console.WriteLine();
-                    Console.WriteLine($"\tYou have entered: {num} For the Motor Speed.");
-                    commandParameters.motorSpeed = num;
-                    valid = true;
-                }
-                else
-                {
-                    Console.WriteLine();
-                    Console.WriteLine("\tPlease enter an integer for the Motor Speed.");
-                    Program.DisplayContinuePrompt();
-                }
-
-            } while (valid == false);
-
-            do
-            {
-                Console.Write("LED Brightness: ");
-                if (int.TryParse(Console.ReadLine(), out num))
-                {
-                    Console.WriteLine();
-                    Console.WriteLine($"\tYou have entered: {num} For the Motor Speed.");
-                    commandParameters.ledBrightness = num;
-                    valid = true;
-                }
-                else
-                {
-                    Console.WriteLine();
-                    Console.WriteLine("\tPlease enter an integer for the Motor Speed.");
-                    Program.DisplayContinuePrompt();
-                }
-
-            } while (valid == false);
-
-            do
-            {
-                Console.Write("Wait Time: ");
-                if (int.TryParse(Console.ReadLine(), out num))
-                {
-                    Console.WriteLine();
-                    Console.WriteLine($"\tYou have entered: {num} For the Motor Speed.");
-                    commandParameters.waitSeconds = num;
-                    valid = true;
-                }
-                else
-                {
-                    Console.WriteLine();
-                    Console.WriteLine("\tPlease enter an integer for the Motor Speed.");
-                    Program.DisplayContinuePrompt();
-                }
-
-            } while (valid == false);
-            return commandParameters;
-        }
-
-        static List<Command> UserProgrammingDisplayGetFinchCommands()
-        {
-            List<Command> commands = new List<Command>();
-            bool isDone = false;
-            string userResponse;
-
-            DisplayScreenHeader("User Commands");
-
-            foreach (Command command in commands)
-            {
-                Console.WriteLine($"\t\t{command}");
-            }
-            
-            do
-            {
-                Console.Write("Command: ");
-                userResponse = Console.ReadLine();
-
-                if (userResponse != "DONE")
-                {
-                    if (Enum.TryParse(userResponse, out Command command))
-                    {
-                        commands.Add(command);
-                    } else
-                    {
-                        Console.WriteLine("\tPlease enter a proper command.");
-                    }
-                } else
-                {
-                    isDone = true;
-                }
-
-            } while (!isDone);
-
-            DisplayContinuePrompt();
-
-            return commands;
-        }
-
-        static void UserProgrammingDisplayViewCommands(List<Command> commands)
-        {
-            DisplayScreenHeader("View Commands");
-
-            Console.WriteLine("\tCommand List");
-            Console.WriteLine("\t------------");
-
-            foreach (Command command in commands)
-            {
-                Console.WriteLine("\t" + command);
-            }
-
             DisplayContinuePrompt();
         }
 
