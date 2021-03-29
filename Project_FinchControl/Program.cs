@@ -15,10 +15,11 @@ namespace Project_FinchControl
     // Application Type: Console
     // Author: Olszewski, James
     // Dated Created: 2/17/2021
+    // Last Modified: 3/28/2021
     // Last Modified: 3/24/2021
     //
     // **************************************************
-    
+
     public enum Command
     {
         NONE,
@@ -62,6 +63,7 @@ namespace Project_FinchControl
         {
             Console.ForegroundColor = ConsoleColor.DarkBlue;
             Console.BackgroundColor = ConsoleColor.White;
+            DataDisplaySetTheme();
         }
 
         /// <summary>
@@ -90,7 +92,8 @@ namespace Project_FinchControl
                 Console.WriteLine("\tc) Data Recorder");
                 Console.WriteLine("\td) Alarm System");
                 Console.WriteLine("\te) User Programming");
-                Console.WriteLine("\tf) Disconnect Finch Robot");
+                Console.WriteLine("\tf) Change Theme");
+                Console.WriteLine("\tg) Disconnect Finch Robot");
                 Console.WriteLine("\tq) Quit");
                 Console.Write("\t\tEnter Choice:");
                 menuChoice = Console.ReadLine().ToLower();
@@ -121,6 +124,10 @@ namespace Project_FinchControl
                         break;
 
                     case "f":
+                        DataDisplaySetTheme();
+                        break;
+
+                    case "g":
                         DisplayDisconnectFinchRobot(finchRobot);
                         break;
 
@@ -476,7 +483,7 @@ namespace Project_FinchControl
             Console.WriteLine("\tNow detecting light levels...");
             for (int index = 0; index < numberOfDataPoints; ++index)
             {
-                lightArray[index] = (finchRobot.getLeftLightSensor() + finchRobot.getRightLightSensor())/2;
+                lightArray[index] = (finchRobot.getLeftLightSensor() + finchRobot.getRightLightSensor()) / 2;
                 int ms = (int)(dataPointFrequency * 1000.0);
                 finchRobot.wait(ms);
                 Console.WriteLine(string.Format($"\t{(object)(index + 1)}").PadLeft(10) + lightArray[index].ToString("n2").PadLeft(10));
@@ -659,7 +666,7 @@ namespace Project_FinchControl
                     Console.WriteLine("\tUnknown Sensor Reference");
                     break;
             }
-            
+
             Console.Write("\tEnter Threshold: ");
             int.TryParse(Console.ReadLine(), out thresholdValue);
             Console.Write($"\tThe Finch {rangeType} threshold has been set to {thresholdValue}.");
@@ -694,7 +701,7 @@ namespace Project_FinchControl
             DisplayScreenHeader("Set Alarm");
             Console.WriteLine("\tStart");
             Console.ReadKey();
-            
+
             do
             {
 
@@ -764,7 +771,7 @@ namespace Project_FinchControl
                             if ((rightLightSensorValue < minMaxThreshold) || (leftLightSensorValue < minMaxThreshold))
                             {
                                 thresholdExceeded = true;
-                            }                     
+                            }
                         }
                         else
                         {
@@ -1024,11 +1031,13 @@ namespace Project_FinchControl
                     {
                         commands.Add((command, duration));
 
-                    } else
+                    }
+                    else
                     {
                         Console.WriteLine("\tPlease enter a proper command and proper interval for duration.");
                     }
-                } else
+                }
+                else
                 {
                     isDone = true;
                 }
@@ -1139,6 +1148,104 @@ namespace Project_FinchControl
             DisplayContinuePrompt();
         }
 
+        #endregion
+
+        #region File I/O
+
+        /// <summary>
+        /// *****************************************************************
+        /// *               File I/O Menu (Console Color)                   *
+        /// *****************************************************************
+        /// </summary>
+
+        static (ConsoleColor foregroundColor, ConsoleColor backgroundColor) ReadThemeData()
+        {
+            string dataPath = @"Data/Theme.txt";
+            string[] themeColors;
+
+            ConsoleColor foregroundColor;
+            ConsoleColor backgroundColor;
+
+            themeColors = File.ReadAllLines(dataPath);
+
+            Enum.TryParse(themeColors[0], true, out foregroundColor);
+            Enum.TryParse(themeColors[1], true, out backgroundColor);
+
+            return (foregroundColor, backgroundColor);
+        }
+
+        static void WriteThemeData(ConsoleColor foreground, ConsoleColor background)
+        {
+            string dataPath = @"Data/Theme.txt";
+
+            File.WriteAllText(dataPath, foreground.ToString() + "\n");
+            File.AppendAllText(dataPath, background.ToString());
+        }
+
+        static ConsoleColor GetConsoleColorFromUser(string property)
+        {
+            ConsoleColor consoleColor;
+            bool validConsoleColor;
+            do
+            {
+                Console.Write($"\tEnter a value for the {property}:");
+                validConsoleColor = Enum.TryParse<ConsoleColor>(Console.ReadLine(), true, out consoleColor);
+
+                if (!validConsoleColor)
+                {
+                    Console.WriteLine("\n\t*** It would seem that you did not provide a valid console color. Please try again. ***\n");
+                }
+                else
+                {
+                    validConsoleColor = true;
+                }
+            } while (!validConsoleColor);
+
+            return consoleColor;
+        }
+
+        static void DataDisplaySetTheme()
+        {
+            (ConsoleColor foregroundColor, ConsoleColor backgroundColor) themeColors;
+            bool themeChosen = false;
+
+            themeColors = ReadThemeData();
+            Console.ForegroundColor = themeColors.foregroundColor;
+            Console.BackgroundColor = themeColors.backgroundColor;
+            Console.Clear();
+            DisplayScreenHeader("Set Application Theme");
+
+            Console.WriteLine($"\tCurrent foreground color: {Console.ForegroundColor}");
+            Console.WriteLine($"\tCurrent background color: {Console.BackgroundColor}");
+            Console.WriteLine();
+
+            Console.Write("\tWould you like to change the current theme (yes/no)?: ");
+            if (Console.ReadLine().ToLower() == "yes")
+            {
+                do
+                {
+                    themeColors.foregroundColor = GetConsoleColorFromUser("foreground");
+                    themeColors.backgroundColor = GetConsoleColorFromUser("background");
+
+                    Console.ForegroundColor = themeColors.foregroundColor;
+                    Console.BackgroundColor = themeColors.backgroundColor;
+                    Console.Clear();
+                    DisplayScreenHeader("Set Application Theme");
+                    Console.WriteLine($"\tNew foreground color: {Console.ForegroundColor}");
+                    Console.WriteLine($"\tNew background color: {Console.BackgroundColor}");
+
+                    Console.WriteLine();
+                    Console.Write("\tIs this how you would like your theme (yes/no)?: ");
+                    if (Console.ReadLine().ToLower() == "yes")
+                    {
+                        themeChosen = true;
+                        WriteThemeData(themeColors.foregroundColor, themeColors.backgroundColor);
+                    }
+
+                } while (!themeChosen);
+            }
+            DisplayContinuePrompt();
+        }
         #endregion
 
         #region FINCH ROBOT MANAGEMENT
